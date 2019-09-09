@@ -12,25 +12,27 @@ class bcolors:
         BOLD = '\033[1m'
         UNDERLINE = '\033[4m'
 
-active = []
-blacklist = "disposable_email_blacklist.conf"
+TYPES = ['MX', 'A', 'AAAA']
+active = {}
+blacklist = "disposable_email_blocklist.conf"
 with open(blacklist, 'r') as blacklist:
     blacklist_content = [line.rstrip() for line in blacklist.readlines()]
 
     for domain in blacklist_content:
         try:
-            validated = False
-            print(bcolors.OKBLUE + "[!]" + bcolors.ENDC + " MX records for  " +
+            print(bcolors.OKBLUE + "[!]" + bcolors.ENDC + 
+                  " Checking email records (MX, A, and AAAA) for  " +
                   domain)
-            for mx in dns.resolver.query(domain, 'MX'):
-                print(bcolors.OKGREEN + "[+] " + bcolors.ENDC + mx.to_text())
-                if not validated:
-                    active.append(domain)
-                    validated = True
+            for record_type in TYPES:
+                if not active.get(domain, False):
+                    for record in dns.resolver.query(domain, record_type):
+                        print(bcolors.OKGREEN + "[+] " + bcolors.ENDC +
+                              record.to_text())
+                        active[domain] = True
         except:
             print(bcolors.FAIL + "[-]" + bcolors.ENDC +
-                  " No MX record found for " + domain)
+                  " No MX, A, or AAAA record found for " + domain)
 
 with open('valid_domains.txt', 'w') as valid:
-    for domain in active:
+    for domain in active.keys():
         valid.write(domain + "\n")
