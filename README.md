@@ -3,53 +3,56 @@ List of disposable email domains
 
 [![Licensed under CC0](https://licensebuttons.net/p/zero/1.0/88x31.png)](https://creativecommons.org/publicdomain/zero/1.0/)
 
-This repo contains a [list of disposable and temporary email address domains](disposable_email_blacklist.conf) often used to register dummy users in order to spam/abuse some services. 
+This repo contains a [list of disposable and temporary email address domains](disposable_email_blocklist.conf) often used to register dummy users in order to spam/abuse some services.
 
 Originally collected to filter new user registration at https://usegalaxy.org and later merged with other lists found online. I cannot guarantee all of these can still be considered disposable but they probably were at one point in time.
 
-Whitelist
+Allowlist
 =========
-The file [whitelist.conf](whitelist.conf) gathers email domains that are often identified as disposable but in fact are not.
+The file [allowlist.conf](allowlist.conf) gathers email domains that are often identified as disposable but in fact are not.
 
 Example Usage
 =============
 **Python**
 ```Python
-blacklist = ('disposable_email_blacklist.conf')
-blacklist_content = [line.rstrip() for line in blacklist.readlines()]
-if email.split('@')[1] in blacklist_content:
+blocklist = ('disposable_email_blocklist.conf')
+blocklist_content = [line.rstrip() for line in blocklist.readlines()]
+if email.split('@')[1] in blocklist_content:
     message = "Please enter your permanent email address."
     return (False, message)
 else:
     return True
 ```
 
-Available as [PyPI module](https://pypi.python.org/pypi/disposable-email-domains) thanks to @di
-```
->>> from disposable_email_domains import blacklist
->>> 'bearsarefuzzy.com' in blacklist
+Available as [PyPI module](https://pypi.org/project/disposable-email-domains) thanks to [@di](https://github.com/di)
+```python
+>>> from disposable_email_domains import blocklist
+>>> 'bearsarefuzzy.com' in blocklist
 True
 ```
 
-**PHP** contributed by @txt3rob and @deguif
-```php
-function is_temp_mail($mail) {
-    $mail_domains_ko = file('disposable_email_blacklist.conf', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+**PHP** contributed by [@txt3rob](https://github.com/txt3rob), [@deguif](https://github.com/deguif), [@pjebs](https://github.com/pjebs) and [@Wruczek](https://github.com/Wruczek)
 
-    //Need to ensure the mail contains an @ to avoid undefined offset
-    return in_array(explode('@', $mail)[1], $mail_domains_ko);
+1. Make sure the passed email is valid. You can check that with [filter_var](https://secure.php.net/manual/en/function.filter-var.php)
+2. Make sure you have the mbstring extension installed on your server
+```php
+function isDisposableEmail($email, $blocklist_path = null) {
+    if (!$blocklist_path) $blocklist_path = __DIR__ . '/disposable_email_blocklist.conf';
+    $disposable_domains = file($blocklist_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $domain = mb_strtolower(explode('@', trim($email))[1]);
+    return in_array($domain, $disposable_domains);
 }
 ```
-**Ruby on Rails** contributed by @MitsunChieh
+**Ruby on Rails** contributed by [@MitsunChieh](https://github.com/MitsunChieh)
 
 In resource model, usually it is `user.rb`
 ```Ruby
-before_validation :reject_email_blacklist
+before_validation :reject_email_blocklist
 
-def reject_email_blacklist
-  blacklist = File.read('config/disposable_email_blacklist.conf').split("\n")
+def reject_email_blocklist
+  blocklist = File.read('config/disposable_email_blocklist.conf').split("\n")
 
-  if blacklist.include?(email.split('@')[1])
+  if blocklist.include?(email.split('@')[1])
     errors[:email] << 'invalid email'
     return false
   else
@@ -57,7 +60,7 @@ def reject_email_blacklist
   end
 end
 ```
-**NodeJs** contributed by @martin-fogelman
+**NodeJs** contributed by [@martin-fogelman](https://github.com/martin-fogelman)
 
 ```Node
 'use strict';
@@ -65,7 +68,7 @@ end
 const readline = require('readline'),
   fs = require('fs');
 
-const input = fs.createReadStream('./disposable_email_blacklist.conf'),
+const input = fs.createReadStream('./disposable_email_blocklist.conf'),
   output = [],
   rl = readline.createInterface({input});
 
@@ -79,30 +82,50 @@ rl.on('line', (line) => {
 rl.on('close', () => {
   try {
     const json = JSON.stringify(output);
-    fs.writeFile('disposable_email_blacklist.json', json, () => console.log('--- FINISHED ---'));
+    fs.writeFile('disposable_email_blocklist.json', json, () => console.log('--- FINISHED ---'));
   } catch (e) {
     console.log(e);
   }
 });
 ```
 
+**C#**
+```C#
+private static readonly Lazy<HashSet<string>> _emailBlockList = new Lazy<HashSet<string>>(() =>
+{
+  var lines = File.ReadLines("disposable_email_blocklist.conf")
+    .Where(line => !string.IsNullOrWhiteSpace(line) && !line.TrimStart().StartsWith("//"));
+  return new HashSet<string>(lines, StringComparer.OrdinalIgnoreCase);
+});
+
+private static bool IsBlocklisted(string domain) => _emailBlockList.Value.Contains(domain);
+
+...
+
+var addr = new MailAddress(email);
+if (IsBlocklisted(addr.Host)))
+  throw new ApplicationException("Email is blocklisted.");
+```
+
 Contributing
 ============
 Feel free to create PR with additions or request removal of some domain (with reasons).
 
-Use 
+Use
 
-`$ cat disposable_email_blacklist.conf your_file | tr '[:upper:]' '[:lower:]' | sort -f | uniq -i  > new_file.conf`
+`$ cat disposable_email_blocklist.conf your_file | tr '[:upper:]' '[:lower:]' | sort -f | uniq -i  > new_file.conf`
 
-`$ comm -23 new_file.conf whitelist.conf > disposable_email_blacklist.conf`
+`$ comm -23 new_file.conf allowlist.conf > disposable_email_blocklist.conf`
 
-to add contents of another file in the same format (only second level domains on new line without @). It also converts uppercase to lowercase, sorts, removes duplicates and removes whitelisted domains.
+to add contents of another file in the same format (only second level domains on new line without @). It also converts uppercase to lowercase, sorts, removes duplicates and removes allowlisted domains.
 
 Changelog
 ============
 
-* 7/31/17 @deguif [joined](https://github.com/martenson/disposable-email-domains/issues/106) as a core maintainer of this project. Thanks!
+* 4/18/19 [@di](https://github.com/di) [joined](https://github.com/martenson/disposable-email-domains/issues/205) as a core maintainer of this project. Thank you!
 
-* 12/6/16 - Available as [PyPI module](https://pypi.python.org/pypi/disposable-email-domains) thanks to @di
+* 7/31/17 [@deguif](https://github.com/deguif) [joined](https://github.com/martenson/disposable-email-domains/issues/106) as a core maintainer of this project. Thanks!
 
-* 7/27/16 - Converted all domains to the second level. This means that starting from [this commit](https://github.com/martenson/disposable-email-domains/commit/61ae67aacdab0b19098de2e13069d7c35b74017a) the implementers should take care of matching the second level domain names properly i.e. `@xxx.yyy.zzz` should match `yyy.zzz` in blacklist more info in [#46](https://github.com/martenson/disposable-email-domains/issues/46)
+* 12/6/16 - Available as [PyPI module](https://pypi.org/project/disposable-email-domains) thanks to [@di](https://github.com/di)
+
+* 7/27/16 - Converted all domains to the second level. This means that starting from [this commit](https://github.com/martenson/disposable-email-domains/commit/61ae67aacdab0b19098de2e13069d7c35b74017a) the implementers should take care of matching the second level domain names properly i.e. `@xxx.yyy.zzz` should match `yyy.zzz` in blocklist more info in [#46](https://github.com/martenson/disposable-email-domains/issues/46)
